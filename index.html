@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en-us" style="height:100%">
+<head>
+    <meta charset="utf-8">
+    <title>Duck Life Space | 504 Games</title>
+    <style>
+        /* 1. Custom Fonts */
+        @font-face {
+            font-family: 'TorusB';
+            src: url('torus-bold-webfont.woff2') format('woff2');
+            font-weight: 700;
+        }
+        @font-face {
+            font-family: 'Torus';
+            src: url('torus-regular-webfont.woff2') format('woff2');
+            font-weight: 400;
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #231F20; 
+        }
+
+        /* 2. Fullscreen Background Loader */
+        #custom-loader {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; 
+            flex-direction: column;
+            justify-content: center; 
+            align-items: center;
+            background-image: url('back.jpg'); /* Your Background Image */
+            background-size: cover;
+            background-position: center;
+            z-index: 99;
+        }
+
+        /* 3. Centered Loading Box */
+        #loader-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(35, 31, 32, 0.85);
+            padding: 35px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            min-width: 400px;
+        }
+
+        #loader-status { 
+            font-family: 'TorusB', sans-serif;
+            font-size: 18px; 
+            color: #ffffff; 
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        /* 4. Green Progress Bar */
+        #progress-wrap { 
+            width: 350px; 
+            height: 14px; 
+            background: #001c00; 
+            border-radius: 7px; 
+            overflow: hidden; 
+            border: 1px solid #007300;
+        }
+
+        #progress-fill { 
+            width: 0%; 
+            height: 100%; 
+            background: #00ff00; 
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+            transition: width 0.2s ease-out; 
+        }
+
+        #loader-mb { 
+            font-family: 'Torus', sans-serif;
+            font-size: 15px; 
+            color: #cccccc;
+            margin-top: 15px; 
+        }
+
+        #unity-container { width: 100%; height: 100%; }
+        #unity-canvas { width: 100%; height: 100%; background: #231f20; }
+    </style>
+</head>
+<body>
+
+    <div id="custom-loader">
+        <div id="loader-content">
+            <!-- Logo (Auto-hides if missing) -->
+            <img src="logo.png" style="max-width: 250px; margin-bottom: 25px;" onerror="this.style.display='none'">
+            
+            <div id="loader-status">Initializing...</div>
+            <div id="progress-wrap">
+                <div id="progress-fill"></div>
+            </div>
+            <div id="loader-mb">0.00MB / 0.00MB</div>
+        </div>
+    </div>
+
+    <div id="unity-container"><canvas id="unity-canvas"></canvas></div>
+
+    <script>
+        // Manifest based on your file sizes
+        const fileManifest = {
+            "Freezenova5.data.unityweb.001": 19922944, 
+            "Freezenova5.data.unityweb.002": 19922944, 
+            "Freezenova5.data.unityweb.003": 10825728,
+            "Freezenova5.framework.js.unityweb": 76800,
+            "Freezenova5.wasm.unityweb": 6955008
+        };
+
+        const totalBytes = Object.values(fileManifest).reduce((a, b) => a + b, 0);
+        const toMB = (b) => (b / (1024 * 1024)).toFixed(2);
+
+        const config = {
+            dataUrl: "", // Populated after merging parts
+            frameworkUrl: "Build/Freezenova5.framework.js.unityweb",
+            codeUrl: "Build/Freezenova5.wasm.unityweb",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "504 Games",
+            productName: "Duck Life Space",
+        };
+
+        function updateUI(bytesLoaded, status) {
+            const progress = Math.min(bytesLoaded / totalBytes, 1.0);
+            const percent = (progress * 100).toFixed(0);
+            const fill = document.getElementById("progress-fill");
+            const mbText = document.getElementById("loader-mb");
+            const statusText = document.getElementById("loader-status");
+
+            if (fill) fill.style.width = percent + "%";
+            if (mbText) mbText.innerText = `${toMB(bytesLoaded)}MB / ${toMB(totalBytes)}MB (${percent}%)`;
+            if (statusText) statusText.innerText = status;
+        }
+
+        async function fetchPart(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to load ${url}`);
+            return await response.arrayBuffer();
+        }
+
+        async function initGame() {
+            updateUI(0, "Downloading Game Parts...");
+            
+            const parts = [
+                "Build/Freezenova5.data.unityweb.001",
+                "Build/Freezenova5.data.unityweb.002",
+                "Build/Freezenova5.data.unityweb.003"
+            ];
+            
+            try {
+                // Download and combine split data files
+                const buffers = await Promise.all(parts.map(url => fetchPart(url)));
+                const combinedBlob = new Blob(buffers, { type: "application/octet-stream" });
+                config.dataUrl = URL.createObjectURL(combinedBlob);
+
+                // Load the Unity Loader script
+                const script = document.createElement("script");
+                script.src = "Build/Freezenova5.loader.js";
+                script.onload = () => {
+                    createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
+                        updateUI(totalBytes * progress, progress < 1 ? "Preparing Game..." : "Launching!");
+                    }).then((instance) => {
+                        // Fade out the loader
+                        const loader = document.getElementById("custom-loader");
+                        loader.style.transition = "opacity 0.6s ease";
+                        loader.style.opacity = "0";
+                        setTimeout(() => { 
+                            loader.style.display = "none"; 
+                            URL.revokeObjectURL(config.dataUrl); // Free memory
+                        }, 600);
+                    });
+                };
+                document.body.appendChild(script);
+            } catch (e) {
+                document.getElementById("loader-status").innerText = "Error: Build files not found.";
+                console.error(e);
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
