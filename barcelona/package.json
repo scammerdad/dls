@@ -1,0 +1,24 @@
+{
+  "name": "subwaybarcelona",
+  "version": "1.0.0",
+  "description": "Subway Surfers Barcelona unity",
+  "main": "index.html",
+  "unpkg": "index.html",
+  "files": [
+    "Build/",
+    "screenshots/",
+    "screenshots/",
+    "barc.webp",
+    "fonts/",
+    "*.js",
+    "index.html",
+    "torus-bold-webfont.woff2",
+    "favicon.ico"
+  ],
+  "keywords": [
+    "unity",
+    "webgl",
+    "game"
+  ],
+  "license": "ISC"
+}
